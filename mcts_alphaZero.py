@@ -58,11 +58,12 @@ class TreeNode(object):
         # Update Q, a running average of values for all visits.
         self._Q += 1.0*(leaf_value - self._Q) / self._n_visits
 
-    def update_recursive(self, leaf_value):
+    def update_recursive(self, leaf_value, gamma=0.9):
         """Like a call to update(), but applied recursively for all ancestors.
         """
         # If it is not root, this node's parent should be updated first.
         if self._parent:
+            leaf_value *= gamma     # I think the leaf value should decrease, since the last steps are more related to win or lose
             self._parent.update_recursive(-leaf_value)
         self.update(leaf_value)
 
@@ -130,7 +131,7 @@ class MCTS(object):
                 leaf_value = 0.0
             else:
                 leaf_value = (
-                    1.0 if winner == state.get_current_player() else -1.0
+                    5.0 if winner == state.get_current_player() else -5.0
                 )
 
         # Update value and visit count of nodes in this traversal.

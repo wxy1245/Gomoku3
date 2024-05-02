@@ -10,12 +10,8 @@ import random
 import numpy as np
 from collections import defaultdict, deque
 from game import Board, Game
-# from mcts_pure import MCTSPlayer as MCTS_Pure
 from mcts_alphaZero import MCTSPlayer
-# from trash.policy_value_net import PolicyValueNet  # Theano and Lasagne
 from policy_value_net_pytorch import PolicyValueNet  # Pytorch
-# from policy_value_net_tensorflow import PolicyValueNet # Tensorflow
-# from policy_value_net_keras import PolicyValueNet # Keras
 
 import os
 
@@ -33,19 +29,22 @@ class TrainPipeline():
         self.learn_rate = 2e-3
         self.lr_multiplier = 1.0  # adaptively adjust the learning rate based on KL
         self.temp = 1.0  # the temperature param
-        self.n_playout = 400  # num of simulations for each move
+        self.n_playout = 400 + 100 # num of simulations for each move
         self.c_puct = 5
-        self.buffer_size = 20000
-        self.batch_size = 512  # mini-batch size for training
+        self.buffer_size = 20000 + 10000
+        self.batch_size = 512 + 32  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_batch_size = 1
-        self.epochs = 5  # num of train_steps for each update
+        self.play_batch_size = 2
+        self.epochs = 6  # num of train_steps for each update, origin: 5, try: 3
         self.kl_targ = 0.02
-        self.check_freq = 80
+        self.check_freq = 20
         self.game_batch_num = 4000
-        self.best_win_ratio = 0.55
 
-        self.use_pretrained = False  #decide to use model trained before or not
+        self.eval_games = 10 + 1
+        self.best_win_ratio = 0.525
+        self.five_to_five_cnt = 0
+
+        self.use_pretrained = True  #decide to use model trained before or not
         init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/policyNet_init.model"
         if self.use_pretrained and os.path.isfile(init_model):
             # start training from an initial policy-value net
@@ -85,14 +84,16 @@ class TrainPipeline():
 
     def collect_selfplay_data(self, n_games=1):
         """collect self-play data for training"""
+        self.episode_len = 0
         for i in range(n_games):
             winner, play_data = self.game.start_self_play(self.mcts_player,
                                                           temp=self.temp)
             play_data = list(play_data)[:]
-            self.episode_len = len(play_data)
+            self.episode_len += len(play_data)
             # augment the data
             play_data = self.get_equi_data(play_data)
             self.data_buffer.extend(play_data)
+        self.episode_len /= n_games
 
     def policy_update(self):
         """update the policy-value net"""
@@ -140,7 +141,7 @@ class TrainPipeline():
                         explained_var_new))
         return loss, entropy
 
-    def policy_evaluate(self, n_games=10):
+    def policy_evaluate(self, n_games):
         """
         Evaluate the current trained policy by playing against the best_saved model (RL就是一个自我学习成长的, 所以, 和自己比有进步就可以了)!!!!!!
         """
@@ -209,7 +210,7 @@ class TrainPipeline():
                 # and save the model params
                 if (i+1) % self.check_freq == 0:
                     print("current self-play batch: {}".format(i+1))
-                    win_ratio = self.policy_evaluate()
+                    win_ratio = self.policy_evaluate(n_games=self.eval_games)
                     self.policy_value_net.save_model(f"./current_policy.model")
                     # if win_ratio > self.best_win_ratio:
                     #     print("New best policy!!!!!!!!")
@@ -223,6 +224,18 @@ class TrainPipeline():
                     if win_ratio >= self.best_win_ratio:
                         print("New best policy!!!!!!!!")
                         self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model")
+                        self.five_to_five_cnt = 0
+                    if win_ratio == 0.5:
+                        self.five_to_five_cnt += 1
+                        if self.five_to_five_cnt == 3:
+                            self.eval_games += 1
+                            # self.best_win_ratio = max(0.51, self.best_win_ratio - 0.01)
+                            self.n_playout += 100
+                            self.buffer_size += 10000
+                            self.batch_size += 32
+                            self.data_buffer = deque(maxlen=self.buffer_size)
+
+                            self.five_to_five_cnt = 0
 
         except KeyboardInterrupt:
             print('\n\rquit')
