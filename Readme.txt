@@ -7,3 +7,5 @@ My Version of Gomoku, codes mainly from Song JunXiao
 3. abandon the origin theano, only keep the pytorch code
 
 (4. Consider the last move decides who win may reduce calculation, but actually it seems to be invalid)
+
+note: For my version, AI is better at defense. You can see the gif to notice that Song's version tend to get own victory even as a afterplayer, but you can see in my record pictures, my leafDamping AI tends to prevent firstplayer's victory.

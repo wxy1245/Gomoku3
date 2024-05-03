@@ -64,7 +64,9 @@ class TreeNode(object):
         # If it is not root, this node's parent should be updated first.
         if self._parent:
             leaf_value *= gamma     # I think the leaf value should decrease, since the last steps are more related to win or lose
-            self._parent.update_recursive(-leaf_value)
+            # if abs(leaf_value) < 2: # but another think: it is still need to keep all above a level like 2
+            #     leaf_value = 2 if leaf_value > 0 else -2
+            self._parent.update_recursive(-leaf_value)  
         self.update(leaf_value)
 
     def get_value(self, c_puct):

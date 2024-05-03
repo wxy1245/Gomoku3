@@ -11,7 +11,7 @@ import pickle
 from game import Board, Game
 # from mcts_pure import MCTSPlayer as MCTS_Pure
 from mcts_alphaZero import MCTSPlayer
-from policy_value_net_numpy import PolicyValueNetNumpy
+# from policy_value_net_numpy import PolicyValueNetNumpy
 # from policy_value_net import PolicyValueNet  # Theano and Lasagne
 from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 # from policy_value_net_tensorflow import PolicyValueNet # Tensorflow
@@ -79,7 +79,7 @@ def run():
         human = Human()
 
         # set start_player=0 for human first
-        game.start_play(human, mcts_player, start_player=1, is_shown=1)
+        game.start_play(human, mcts_player, start_player=0, is_shown=1)
     except KeyboardInterrupt:
         print('\n\rquit')
 

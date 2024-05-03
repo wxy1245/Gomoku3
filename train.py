@@ -15,6 +15,8 @@ from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 
 import os
 
+from tensorboardX import SummaryWriter
+
 class TrainPipeline():
     def __init__(self, init_model=None):
         # params of the board and the game
@@ -29,10 +31,10 @@ class TrainPipeline():
         self.learn_rate = 2e-3
         self.lr_multiplier = 1.0  # adaptively adjust the learning rate based on KL
         self.temp = 1.0  # the temperature param
-        self.n_playout = 400 + 100 # num of simulations for each move
+        self.n_playout = 400 # num of simulations for each move
         self.c_puct = 5
-        self.buffer_size = 20000 + 10000
-        self.batch_size = 512 + 32  # mini-batch size for training
+        self.buffer_size = 20000
+        self.batch_size = 512  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
         self.play_batch_size = 2
         self.epochs = 6  # num of train_steps for each update, origin: 5, try: 3
@@ -40,12 +42,12 @@ class TrainPipeline():
         self.check_freq = 20
         self.game_batch_num = 4000
 
-        self.eval_games = 10 + 1
+        self.eval_games = 10 
         self.best_win_ratio = 0.525
         self.five_to_five_cnt = 0
 
-        self.use_pretrained = True  #decide to use model trained before or not
-        init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/policyNet_init.model"
+        self.use_pretrained = False  #decide to use model trained before or not
+        # init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/policyNet_init.model"
         if self.use_pretrained and os.path.isfile(init_model):
             # start training from an initial policy-value net
             self.policy_value_net = PolicyValueNet(self.board_width,
@@ -102,12 +104,17 @@ class TrainPipeline():
         mcts_probs_batch = [data[1] for data in mini_batch]
         winner_batch = [data[2] for data in mini_batch]
         old_probs, old_v = self.policy_value_net.policy_value(state_batch)
+        
+        loss = 0
+        entropy = 0
         for i in range(self.epochs):
-            loss, entropy = self.policy_value_net.train_step(
+            loss_one, entropy_one = self.policy_value_net.train_step(
                     state_batch,
                     mcts_probs_batch,
                     winner_batch,
                     self.learn_rate*self.lr_multiplier)
+            loss += loss_one
+            entropy += entropy_one
             new_probs, new_v = self.policy_value_net.policy_value(state_batch)
             kl = np.mean(np.sum(old_probs * (
                     np.log(old_probs + 1e-10) - np.log(new_probs + 1e-10)),
@@ -115,31 +122,40 @@ class TrainPipeline():
             )
             if kl > self.kl_targ * 4:  # early stopping if D_KL diverges badly
                 break
+        loss /= self.epochs
+        entropy /= self.epochs
+
         # adaptively adjust the learning rate
         if kl > self.kl_targ * 2 and self.lr_multiplier > 0.1:
             self.lr_multiplier /= 1.5
         elif kl < self.kl_targ / 2 and self.lr_multiplier < 10:
             self.lr_multiplier *= 1.5
 
-        explained_var_old = (1 -
-                             np.var(np.array(winner_batch) - old_v.flatten()) /
-                             np.var(np.array(winner_batch)))
-        explained_var_new = (1 -
-                             np.var(np.array(winner_batch) - new_v.flatten()) /
-                             np.var(np.array(winner_batch)))
+        # explained_var_old = (1 -
+        #                      np.var(np.array(winner_batch) - old_v.flatten()) /
+        #                      np.var(np.array(winner_batch)))
+        # explained_var_new = (1 -
+        #                      np.var(np.array(winner_batch) - new_v.flatten()) /
+        #                      np.var(np.array(winner_batch)))
+        # print(("kl:{:.5f},"
+        #        "lr_multiplier:{:.3f},"
+        #        "loss:{},"
+        #        "entropy:{},"
+        #        "explained_var_old:{:.3f},"
+        #        "explained_var_new:{:.3f}"
+        #        ).format(kl,
+        #                 self.lr_multiplier,
+        #                 loss,
+        #                 entropy,
+        #                 explained_var_old,
+        #                 explained_var_new))
         print(("kl:{:.5f},"
                "lr_multiplier:{:.3f},"
-               "loss:{},"
-               "entropy:{},"
-               "explained_var_old:{:.3f},"
-               "explained_var_new:{:.3f}"
-               ).format(kl,
-                        self.lr_multiplier,
-                        loss,
-                        entropy,
-                        explained_var_old,
-                        explained_var_new))
-        return loss, entropy
+               "loss:{:.6f},"
+               "entropy:{:.6f}"
+               ).format(kl, self.lr_multiplier, loss, entropy))
+        
+        return kl, loss
 
     def policy_evaluate(self, n_games):
         """
@@ -200,12 +216,17 @@ class TrainPipeline():
     def run(self):
         """run the training pipeline"""
         try:
+            writer = SummaryWriter(f"./runs/{self.board_width}_{self.board_height}_{self.n_in_row}_leaf_damping")
+
             for i in range(self.game_batch_num):
                 self.collect_selfplay_data(self.play_batch_size)
                 print("batch i:{}, episode_len:{}".format(
                         i+1, self.episode_len))
                 if len(self.data_buffer) > self.batch_size:
-                    loss, entropy = self.policy_update()
+                    kl, loss = self.policy_update()
+                    writer.add_scalar('Loss', loss, i+1)
+                    writer.add_scalar('KL', kl, i+1)
+                    writer.add_scalar('LR_multiplier', self.lr_multiplier, i+1)
                 # check the performance of the current model,
                 # and save the model params
                 if (i+1) % self.check_freq == 0:
@@ -228,7 +249,7 @@ class TrainPipeline():
                     if win_ratio == 0.5:
                         self.five_to_five_cnt += 1
                         if self.five_to_five_cnt == 3:
-                            self.eval_games += 1
+                            self.eval_games += 2
                             # self.best_win_ratio = max(0.51, self.best_win_ratio - 0.01)
                             self.n_playout += 100
                             self.buffer_size += 10000
@@ -236,9 +257,12 @@ class TrainPipeline():
                             self.data_buffer = deque(maxlen=self.buffer_size)
 
                             self.five_to_five_cnt = 0
-
+  
         except KeyboardInterrupt:
             print('\n\rquit')
+        
+        finally:
+            writer.close()
 
 
 if __name__ == '__main__':
