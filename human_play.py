@@ -58,7 +58,7 @@ def run():
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
         best_policy = PolicyValueNet(width, height, model_file = model_file)
-        mcts_player = MCTSPlayer(best_policy.policy_value_fn, c_puct=5, n_playout=400)
+        mcts_player = MCTSPlayer(best_policy.policy_value_fn, c_puct=5, n_playout=800)  #c_puct在比赛时可以适当减小, 更多的利用已有知识; 训练时可以适当增大, 多探索
 
         # # load the provided model (trained in Theano/Lasagne) into a MCTS player written in pure numpy
         # try:
