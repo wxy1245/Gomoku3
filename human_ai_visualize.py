@@ -158,7 +158,7 @@ from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 #         self.info_panel.insert(tk.END, self.game_record[-1] + "\n")  # Only insert the latest record
 
 class GameBoard(tk.Frame):
-    def __init__(self, parent, rows=7, columns=7, size=64, color='#D2B48C'):
+    def __init__(self, parent, rows, columns, size=64, color='#D2B48C'):
         """Create a new game board."""
         self.parent = parent
         self.rows = rows
@@ -276,7 +276,7 @@ class GameBoard(tk.Frame):
         col = round((event.x - self.shift_x) / self.size) - 1   #note: see the draw_board function, pane starts at location 1
         row = round((event.y - self.shift_y) / self.size) - 1   
         if 0 <= row <= self.rows and 0 <= col <= self.columns:
-            self.human_player.set_last_move(7 - row, col, self.columns+1)
+            self.human_player.set_last_move(self.rows - row, col, self.columns+1)
             
     def draw_piece(self, row, col, player):
         """Draw a piece on the board."""
@@ -301,9 +301,9 @@ class GameBoard(tk.Frame):
     def add_info(self, info):
         self.info_panel.insert(tk.END, info + "\n")
     
-    def ai_vs_ai(self, model1, model2, start_player):
-        n = 5
-        width, height = 8, 8
+    def ai_vs_ai(self, model1, model2, start_player, board_width, board_height, n_in_row):
+        n = n_in_row
+        width, height = board_width, board_height
 
         try:
             self.start_player = start_player    #0 - player1(ai) first, 1 - player2(ai) first
@@ -342,17 +342,17 @@ class GameBoard(tk.Frame):
             move = player_in_turn.get_action(self.board)
         if move is not None:
             if (current_player == p2 and self.start_player == 1) or current_player == p1 and self.start_player == 0: 
-                self.game_record.append(f"Black: ({7 - move // self.board.width}, {move % self.board.width})")
+                self.game_record.append(f"Black: ({self.rows - move // self.board.width}, {move % self.board.width})")
             else:   
-                self.game_record.append(f"White: ({7 - move // self.board.width}, {move % self.board.width})")
+                self.game_record.append(f"White: ({self.rows - move // self.board.width}, {move % self.board.width})")
             
             self.board.do_move(move)
             if (self.start_player == 0 and current_player == p1) or (self.start_player == 1 and current_player == p2):
-                self.draw_piece(7 - move // self.board.width, move % self.board.width, 0) #0:black
-                self.add_info(f"Black:({7 - move // self.board.width}, {move % self.board.width})")
+                self.draw_piece(self.rows - move // self.board.width, move % self.board.width, 0) #0:black
+                self.add_info(f"Black:({self.rows - move // self.board.width}, {move % self.board.width})")
             else:
-                self.draw_piece(7 - move // self.board.width, move % self.board.width, 1) #1:white
-                self.add_info(f"White:({7 - move // self.board.width}, {move % self.board.width})")
+                self.draw_piece(self.rows - move // self.board.width, move % self.board.width, 1) #1:white
+                self.add_info(f"White:({self.rows - move // self.board.width}, {move % self.board.width})")
             
             end, winner = self.board.game_end()
             if end:
@@ -366,9 +366,9 @@ class GameBoard(tk.Frame):
             else:
                 self.parent.after(1000, self.ai_ai_game_step)
 
-    def human_vs_ai(self, start_player, model_file):
-        n = 5
-        width, height = 8, 8
+    def human_vs_ai(self, start_player, model_file, board_width, board_height, n_in_row):
+        n = n_in_row
+        width, height = board_width, board_height
         # model_file = f"./models_{width}_{height}_{n}_me/best_policy(leafDamp2500).model"
 
         try:
@@ -408,17 +408,17 @@ class GameBoard(tk.Frame):
             move = player_in_turn.get_action(self.board)
         if move is not None:
             if (current_player == p2 and self.start_player == 1) or current_player == p1 and self.start_player == 0: 
-                self.game_record.append(f"Black: ({7 - move // self.board.width}, {move % self.board.width})")
+                self.game_record.append(f"Black: ({self.rows - move // self.board.width}, {move % self.board.width})")
             else:   
-                self.game_record.append(f"White: ({7 - move // self.board.width}, {move % self.board.width})")
+                self.game_record.append(f"White: ({self.rows - move // self.board.width}, {move % self.board.width})")
             
             self.board.do_move(move)
             if (self.start_player == 0 and current_player == p1) or (self.start_player == 1 and current_player == p2):
-                self.draw_piece(7 - move // self.board.width, move % self.board.width, 0) #0:black
-                self.add_info(f"Black:({7 - move // self.board.width}, {move % self.board.width})")
+                self.draw_piece(self.rows - move // self.board.width, move % self.board.width, 0) #0:black
+                self.add_info(f"Black:({self.rows - move // self.board.width}, {move % self.board.width})")
             else:
-                self.draw_piece(7 - move // self.board.width, move % self.board.width, 1) #1:white
-                self.add_info(f"White:({7 - move // self.board.width}, {move % self.board.width})")
+                self.draw_piece(self.rows - move // self.board.width, move % self.board.width, 1) #1:white
+                self.add_info(f"White:({self.rows - move // self.board.width}, {move % self.board.width})")
             
             end, winner = self.board.game_end()
             if end:
@@ -450,15 +450,19 @@ class HumanPlayer(object):
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry("1200x900")  # Set the window size
-    visualBoard = GameBoard(root)
+    root.geometry("1360x1020")  # Set the window size
+
+    board_width, board_height = 9, 9
+    n_in_row = 5
+    visualBoard = GameBoard(root, rows=board_height-1, columns=board_width-1)
     visualBoard.pack(side="top", fill="both", expand="true", padx=10, pady=10)
 
-    # visualBoard.human_vs_ai(start_player=0, model_file=f"./models_8_8_5_me/best_policy(leafDamp2500).model") #0: human_first, 1:ai-first
+    visualBoard.human_vs_ai(start_player=1, 
+                            model_file=f"./models_9_9_5_me/best_policy(leafDamp).model",
+                            board_width=9, board_height=9, n_in_row=5) #0: human_first, 1:ai-first
 
-    visualBoard.ai_vs_ai(model1=f"./models_8_8_5_me/best_policy(leafDamp2500).model", 
-                         model2=f"./models_8_8_5_me/best_policy(non-leaf2000).model", 
-                         start_player=0)    #0: model1 first, 1:model2 first
-
+    # visualBoard.ai_vs_ai(model1=f"./models_9_9_5_me/best_policy(leafDamp).model", 
+    #                      model2=f"./models_9_9_5_me/best_policy(non-leaf).model", 
+    #                      start_player=1, board_width=board_width, board_height=board_height, n_in_row=n_in_row)    #0: model1 first, 1:model2 first
 
     root.mainloop()

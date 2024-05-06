@@ -6,11 +6,11 @@ from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 
 def run():
     n = 5
-    width, height = 8, 8
+    width, height = 9, 9
     N_fights = 10
     
-    player1_file = f"./models_{width}_{height}_{n}_me/best_policy(leafDamp2500).model"
-    player2_file = f"./models_{width}_{height}_{n}_me/best_policy(non-leaf2500).model"
+    player1_file = f"./models_{width}_{height}_{n}_me/best_policy(leafDamp).model"
+    player2_file = f"./models_{width}_{height}_{n}_me/best_policy(non-leaf).model"
 
     try:
         board = Board(width=width, height=height, n_in_row=n)
