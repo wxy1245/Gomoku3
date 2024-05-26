@@ -87,7 +87,7 @@ class TrainPipeline():
     def collect_selfplay_data(self, n_games=1):
         """collect self-play data for training"""
         self.episode_len = 0
-        for i in range(n_games):
+        for i in range(n_games):    #这个play_data就是数据来源(只有自我对弈的，也可考虑加入人机对弈数据等等)
             winner, play_data = self.game.start_self_play(self.mcts_player,
                                                           temp=self.temp)
             play_data = list(play_data)[:]

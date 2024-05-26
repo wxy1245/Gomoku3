@@ -49,14 +49,14 @@ class TreeNode(object):
                    key=lambda act_node: act_node[1].get_value(c_puct))
 
     def update(self, leaf_value):
-        """Update node values from leaf evaluation.
+        """Update node values from leaf evaluation. 
         leaf_value: the value of subtree evaluation from the current player's
             perspective.
         """
         # Count visit.
         self._n_visits += 1
         # Update Q, a running average of values for all visits.
-        self._Q += 1.0*(leaf_value - self._Q) / self._n_visits
+        self._Q += 1.0*(leaf_value - self._Q) / self._n_visits  #self._Q actually means the V value(state value)
 
     def update_recursive(self, leaf_value, gamma=0.9):
         """Like a call to update(), but applied recursively for all ancestors.
@@ -116,7 +116,7 @@ class MCTS(object):
             if node.is_leaf():
                 break
             # Greedily select next move.
-            action, node = node.select(self._c_puct)
+            action, node = node.select(self._c_puct)    #select a node with highest UCT score: Q_val + U_val(win many and explore few)
             state.do_move(action)
 
         # Evaluate the leaf using a network which outputs a list of

@@ -457,7 +457,7 @@ if __name__ == "__main__":
     visualBoard = GameBoard(root, rows=board_height-1, columns=board_width-1)
     visualBoard.pack(side="top", fill="both", expand="true", padx=10, pady=10)
 
-    visualBoard.human_vs_ai(start_player=1, 
+    visualBoard.human_vs_ai(start_player=0, 
                             model_file=f"./models_9_9_5_me/best_policy(leafDamp).model",
                             board_width=9, board_height=9, n_in_row=5) #0: human_first, 1:ai-first
 

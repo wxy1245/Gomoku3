@@ -77,7 +77,7 @@ class PolicyValueNet():
             net_params = torch.load(model_file)
             self.policy_value_net.load_state_dict(net_params)
 
-    def policy_value(self, state_batch):
+    def policy_value(self, state_batch):    #这个其实不是必需函数，它是后面计算随机采样的一批数据的old_prob和new_prob，进而计算KL散度，从而调整lr_multiplier用的
         """
         input: a batch of states
         output: a batch of action probabilities and state values
@@ -93,7 +93,7 @@ class PolicyValueNet():
             act_probs = np.exp(log_act_probs.data.numpy())
             return act_probs, value.data.numpy()
 
-    def policy_value_fn(self, board):
+    def policy_value_fn(self, board):   #这里的policy_value_fn其实是给MCTSPlayer使用的，他们在进行第三步评估时需要
         """
         input: board
         output: a list of (action, probability) tuples for each available
