@@ -13,6 +13,7 @@ from game import Board, Game
 from mcts_alphaZero import MCTSPlayer
 from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 
+import pickle
 import os
 
 from tensorboardX import SummaryWriter
@@ -20,8 +21,8 @@ from tensorboardX import SummaryWriter
 class TrainPipeline():
     def __init__(self, init_model=None):
         # params of the board and the game
-        self.board_width = 8
-        self.board_height = 8
+        self.board_width = 9
+        self.board_height = 9
         self.n_in_row = 5
         self.board = Board(width=self.board_width,
                            height=self.board_height,
@@ -31,7 +32,7 @@ class TrainPipeline():
         self.learn_rate = 2e-3
         self.lr_multiplier = 1.0  # adaptively adjust the learning rate based on KL
         self.temp = 1.0  # the temperature param
-        self.n_playout = 400 # num of simulations for each move
+        self.n_playout = 400 + 100 # num of simulations for each move
         self.c_puct = 5
         self.buffer_size = 20000
         self.batch_size = 512  # mini-batch size for training
@@ -42,12 +43,24 @@ class TrainPipeline():
         self.check_freq = 20
         self.game_batch_num = 4000
 
-        self.eval_games = 10 
+        self.eval_games = 6 
         self.best_win_ratio = 0.525
         self.five_to_five_cnt = 0
 
-        self.use_pretrained = False  #decide to use model trained before or not
-        # init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/policyNet_init.model"
+        self.use_human_ai_data = True
+        self.games_savedirpath = f"./games_saved_data/{self.board_width}_{self.board_height}_{self.n_in_row}/"
+        filename = 'data.pkl'
+        self.games_data = []
+        if os.path.exists(self.games_savedirpath + filename):
+            with open(self.games_savedirpath + filename, 'rb') as f:
+                while True:
+                    try:
+                        self.games_data.append(pickle.load(f))
+                    except EOFError:
+                        break
+
+        self.use_pretrained = True  #decide to use model trained before or not
+        init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy(leafDamp).model"
         if self.use_pretrained and os.path.isfile(init_model):
             # start training from an initial policy-value net
             self.policy_value_net = PolicyValueNet(self.board_width,
@@ -83,6 +96,19 @@ class TrainPipeline():
                                     np.flipud(equi_mcts_prob).flatten(),
                                     winner))
         return extend_data
+
+    def Human_AI_data_collect(self, n_games=1):
+        """collect human_play with it data for training"""
+        self.episode_len = 0
+        for i in range(n_games):
+            if self.games_data:
+                play_data = random.choice(self.games_data)
+                play_data = list(play_data)[:]
+                self.episode_len += len(play_data)
+                play_data = self.get_equi_data(play_data)
+                self.data_buffer.extend(play_data)
+        self.episode_len /= n_games
+
 
     def collect_selfplay_data(self, n_games=1):
         """collect self-play data for training"""
@@ -217,8 +243,33 @@ class TrainPipeline():
         """run the training pipeline"""
         try:
             writer = SummaryWriter(f"./runs/{self.board_width}_{self.board_height}_{self.n_in_row}_leaf_damping")
+      
+            if self.use_human_ai_data and self.games_data:
+                print("Now is training use records data peroid ...")
+                human_play_game_batch = 400
+                record_games_train_freq = 20
+                for i in range(human_play_game_batch):
+                    self.Human_AI_data_collect(self.play_batch_size)
+                    print("batch i:{}, episode_len:{}".format(
+                            i+1, self.episode_len))
+                    if len(self.data_buffer) > self.batch_size:
+                        kl, loss = self.policy_update()
+                        writer.add_scalar('Loss', loss, i+1)
+                        writer.add_scalar('KL', kl, i+1)
+                        writer.add_scalar('LR_multiplier', self.lr_multiplier, i+1)
+                    if (i+1) % record_games_train_freq == 0:
+                        print("current human_play_record batch: {}".format(i+1))
+                        win_ratio = self.policy_evaluate(n_games=self.eval_games)
+                        self.policy_value_net.save_model(f"./current_policy.model")
+                        if win_ratio > self.best_win_ratio:
+                            print("New best policy!!!!!!!!")
+                            self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model")
+                            self.five_to_five_cnt = 0
 
+
+                
             for i in range(self.game_batch_num):
+                print("Now is training by self-play period ...")
                 self.collect_selfplay_data(self.play_batch_size)
                 print("batch i:{}, episode_len:{}".format(
                         i+1, self.episode_len))
@@ -233,6 +284,10 @@ class TrainPipeline():
                     print("current self-play batch: {}".format(i+1))
                     win_ratio = self.policy_evaluate(n_games=self.eval_games)
                     self.policy_value_net.save_model(f"./current_policy.model")
+                    if win_ratio >= self.best_win_ratio:
+                        print("New best policy!!!!!!!!")
+                        self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model")
+                        self.five_to_five_cnt = 0
                     # if win_ratio > self.best_win_ratio:
                     #     print("New best policy!!!!!!!!")
                     #     self.best_win_ratio = win_ratio

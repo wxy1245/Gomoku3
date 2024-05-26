@@ -1,171 +1,23 @@
 # from __future__ import print_function
 
+import numpy as np
 import tkinter as tk
 import pickle
 from game import Board, Game
 from mcts_alphaZero import MCTSPlayer
 from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 
-# 棋盘颜色
-# 浅蓝和青色搭配: #90FFFF, #E0FFFF
-# 浅棕色和米黄色搭配: #D2B48C, #f5f5dc
-
-# 棋子颜色
-# 黑: #0F0F0F, 白: #F7F7F7
-
-# class GameBoard(tk.Frame):
-#     def __init__(self, parent, rows=7, columns=7, size=64, color='#D2B48C'):
-#         """Create a new game board."""
-#         self.parent = parent
-#         self.rows = rows
-#         self.columns = columns
-#         self.size = size
-#         self.color = color
-#         self.turn = 0  # 0 for black, 1 for white
-#         self.game_record = []
-
-#         canvas_width = columns * size + 5 * size
-#         canvas_height = rows * size + 5 * size
-
-#         tk.Frame.__init__(self, parent)
-#         self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0,
-#                                 width=canvas_width, height=canvas_height, background="#d8d8bc")
-#         self.canvas.pack(side="left", fill="both", expand=True, padx=5, pady=5, anchor="center")
-
-#         self.info_panel = tk.Text(root, width=15, font=("Arial", 14))
-#         self.info_panel.pack(side="right", fill="both", padx=15, pady=15, anchor="center")
-#         self.info_panel.insert(tk.END, "Game Record:\n")
-
-#         self.canvas.bind("<Button-1>", self.on_tile_clicked)
-
-#         self.parent.bind("<Configure>", self.on_window_resized)
-#         self.shift_x = 0.12 * (parent.winfo_width() - self.info_panel.winfo_width())
-#         self.shift_y = 0.0725 * (self.parent.winfo_height() + parent.winfo_width())
-#         self.draw_board()
-
-#         # Add a variable to store the last piece(center red point)
-#         self.last_piece = None
-
-#     def on_window_resized(self, event):
-#         """Handle the window resize event."""
-#         self.shift_x = 0.12 *(self.parent.winfo_width() - self.info_panel.winfo_width())
-#         self.shift_y = 0.0725 * (self.parent.winfo_height() + self.parent.winfo_width())
-#         self.canvas.delete("all")
-#         self.draw_board()  # Redraw the board
-#         self.redraw_pieces()  # Redraw the pieces
-
-#     def redraw_pieces(self):
-#         """Redraw the pieces on the board."""
-#         for i, record in enumerate(self.game_record):
-#             row, col = map(int, record.split(": ")[1].strip("()").split(", "))
-#             self.draw_piece(row, col, i % 2)  # Redraw the piece
-
-#     def draw_board(self):
-#         """Draw the game board."""
-#         for row in range(0, self.rows+2):
-#             for col in range(0, self.columns+2):
-#                 x1 = col * self.size
-#                 y1 = row * self.size
-#                 x2 = x1 + self.size
-#                 y2 = y1 + self.size     
-#                 self.canvas.create_rectangle(x1+self.shift_x, y1+self.shift_y, 
-#                                             x2+self.shift_x, y2+self.shift_y, 
-#                                             outline="black", fill=self.color, width=0)
-                
-#         for row in range(1, self.rows+1):
-#             for col in range(1, self.columns+1):
-#                 x1 = col * self.size
-#                 y1 = row * self.size
-#                 x2 = x1 + self.size
-#                 y2 = y1 + self.size     
-#                 self.canvas.create_rectangle(x1+self.shift_x, y1+self.shift_y, 
-#                                             x2+self.shift_x, y2+self.shift_y, 
-#                                             outline="black")
-        
-#         # Draw the two rectangles with chess pieces
-#         piece_radius = self.size // 4
-#         for i in range(2):
-#             # Calculate the position for the rectangle
-#             rect_x1 = (self.columns + 3) * self.size
-#             rect_y1 = (i * 3 + 2) * self.size
-#             rect_x2 = rect_x1 + 2 * self.size + self.parent.winfo_width() * 0.02
-#             rect_y2 = rect_y1 + self.size
-
-#             # Draw the rectangle
-#             self.canvas.create_rectangle(rect_x1+self.shift_x, rect_y1+self.shift_y, 
-#                                         rect_x2+self.shift_x, rect_y2+self.shift_y, 
-#                                         outline="black")
-
-#             # Calculate the position for the chess piece
-#             piece_x = rect_x1 + self.size / 2
-#             piece_y = rect_y1 + self.size / 2
-
-#             # Draw the chess piece
-#             color = "black" if i == 0 else "white"
-#             self.canvas.create_oval(piece_x-piece_radius+self.shift_x, piece_y-piece_radius+self.shift_y, 
-#                                     piece_x+piece_radius+self.shift_x, piece_y+piece_radius+self.shift_y, 
-#                                     fill=color)
-            
-#             # Add a text box with "Black" or "White"
-#             text = "Black" if i == 0 else "White"
-#             self.canvas.create_text(piece_x+2*piece_radius+self.shift_x, piece_y-piece_radius/2+self.shift_y, anchor="nw", 
-#                                     text=text, font=("Arial", 14))
-            
-#         # Draw row and column numbers
-#         for i in range(0, self.rows+1):
-#             self.canvas.create_text(self.shift_x+self.size*0.5, i*self.size+self.shift_y+self.size, anchor="e", 
-#                                     text=str(i), font=("Arial", 14))
-#         for i in range(0, self.columns+1):
-#             self.canvas.create_text(i*self.size+self.shift_x+self.size, self.shift_y+self.size*0.55, anchor="s", 
-#                                     text=str(i), font=("Arial", 14))
-
-#     def on_tile_clicked(self, event):
-#         """Handle a tile click event."""
-#         col = round((event.x - self.shift_x) / self.size) - 1   #note: see the draw_board function, pane starts at location 1
-#         row = round((event.y - self.shift_y) / self.size) - 1   
-#         if 0 <= row <= self.rows and 0 <= col <= self.columns:
-#             self.draw_piece(row, col, self.turn)
-#             if self.turn == 0:
-#                 self.game_record.append(f"Black: ({row}, {col})")
-#             else:
-#                 self.game_record.append(f"White: ({row}, {col})")
-
-#             self.turn = 1 - self.turn  # Switch turn
-#             self.update_info_panel()
-
-#     def draw_piece(self, row, col, player):
-#         """Draw a piece on the board."""
-#         if player == 0:
-#             color = '#0F0F0F'  # Black
-#         else:
-#             color = '#F7F7F7'  # White
-#         x = col * self.size + self.shift_x + self.size
-#         y = row * self.size + self.shift_y + self.size
-#         self.canvas.create_oval(x-self.size*0.425, y-self.size*0.425, x+self.size*0.425, y+self.size*0.425, fill=color)
-
-#         # Remove the last red dot
-#         if self.last_piece is not None:
-#             self.canvas.delete(self.last_piece)
-
-#         # Draw a red dot in the center of the new piece
-#         red_dot_radius = self.size * 0.1
-#         self.last_piece = self.canvas.create_oval(x-red_dot_radius, y-red_dot_radius, 
-#                                                   x+red_dot_radius, y+red_dot_radius, 
-#                                                   fill='red')
-        
-#     def update_info_panel(self):
-#         """Update the information panel."""
-#         self.info_panel.insert(tk.END, self.game_record[-1] + "\n")  # Only insert the latest record
+import os
 
 class GameBoard(tk.Frame):
-    def __init__(self, parent, rows, columns, size=64, color='#D2B48C'):
+    def __init__(self, parent, rows, columns, size=64, color='#D2B48C', n_in_row=5):
         """Create a new game board."""
         self.parent = parent
         self.rows = rows
         self.columns = columns
+        self.n_in_row = n_in_row
         self.size = size
         self.color = color
-        # self.turn = 0  # 0 for black, 1 for white
         self.game_record = []
 
         canvas_width = columns * size + 5 * size
@@ -194,6 +46,9 @@ class GameBoard(tk.Frame):
         # Add a variable to store the last piece(center red point)
         self.last_piece = None
 
+        self.onegame_savestates, self.onegame_save_probs, self.onegame_saveplayers = [], [], []
+        self.games_savedirpath = f"./games_saved_data/{self.columns+1}_{self.rows+1}_{self.n_in_row}/"
+    
     def on_window_resized(self, event):
         """Handle the window resize event."""
         self.shift_x = 0.12 *(self.parent.winfo_width() - self.info_panel.winfo_width())
@@ -277,6 +132,7 @@ class GameBoard(tk.Frame):
         row = round((event.y - self.shift_y) / self.size) - 1   
         if 0 <= row <= self.rows and 0 <= col <= self.columns:
             self.human_player.set_last_move(self.rows - row, col, self.columns+1)
+
             
     def draw_piece(self, row, col, player):
         """Draw a piece on the board."""
@@ -398,19 +254,39 @@ class GameBoard(tk.Frame):
         except KeyboardInterrupt:
             print('\n\rquit')
 
-    def human_ai_game_step(self):
-        p1, p2 = [1, 2]
+    def human_ai_game_step(self, gamma=0.9):
+        p1, p2 = [1, 2] #p1: human; p2:ai
         current_player = self.board.get_current_player()
         player_in_turn = self.players[current_player]
         move = player_in_turn.get_action(self.board)
+
+        # states, move_probs, human_ai_current_players = [], [], []
         while move is None:
             self.parent.update()
             move = player_in_turn.get_action(self.board)
+
         if move is not None:
             if (current_player == p2 and self.start_player == 1) or current_player == p1 and self.start_player == 0: 
                 self.game_record.append(f"Black: ({self.rows - move // self.board.width}, {move % self.board.width})")
             else:   
                 self.game_record.append(f"White: ({self.rows - move // self.board.width}, {move % self.board.width})")
+            
+            #Record the data, to use in the future
+            self.onegame_savestates.append(self.board.current_state())
+            move_probs = np.zeros(self.board.width*self.board.height)
+            move_probs[move] = 1.0    
+            self.onegame_save_probs.append(move_probs) 
+            # if current_player == p1:
+            #     # move_probs simply be a one-hot board
+            #     move_probs = np.zeros(self.board.width*self.board.height)
+            #     move_probs[move] = 1.0    
+            #     self.onegame_save_probs.append(move_probs) 
+            # else:
+            #     # now I still use one-hot board
+            #     move_probs = np.zeros(self.board.width*self.board.height)
+            #     move_probs[move] = 1.0
+            #     self.onegame_save_probs.append(move_probs)
+            self.onegame_saveplayers.append(current_player)
             
             self.board.do_move(move)
             if (self.start_player == 0 and current_player == p1) or (self.start_player == 1 and current_player == p2):
@@ -422,13 +298,35 @@ class GameBoard(tk.Frame):
             
             end, winner = self.board.game_end()
             if end:
+                winners_z = np.zeros(len(self.onegame_saveplayers))
                 if winner != -1:
+                    winners_z[np.array(self.onegame_saveplayers) == winner] = 5.0
+                    winners_z[np.array(self.onegame_saveplayers) != winner] = -5.0
+                    keep_ratio = 1
+                    for i in range(len(self.onegame_saveplayers)):
+                        winners_z[len(self.onegame_saveplayers)-1-i] *= keep_ratio
+                        keep_ratio *= gamma
+
                     if winner == p1:
                         self.add_info(f"Game end. Winner is Human")
                     if winner == p2:
-                        self.add_info(f"Game end. Winner is AI")
+                        self.add_info(f"Game end. Winner is AI")                
                 else:
                     self.add_info("Game end. Tie")
+
+                if len(self.onegame_saveplayers) >= 2 * self.n_in_row - 1:
+                    data = zip(self.onegame_savestates, self.onegame_save_probs, winners_z)
+                    filename = 'data.pkl'
+                    if os.path.exists(self.games_savedirpath + filename):
+                        with open(self.games_savedirpath + filename, 'ab') as f:
+                            pickle.dump(data, f)
+                    else:
+                        with open(self.games_savedirpath + filename, 'wb') as f:
+                            pickle.dump(data, f)
+                else:
+                    print("This game is invalid!")                                       
+                self.onegame_savestates, self.onegame_save_probs, self.onegame_saveplayers = [], [], []
+
             else:
                 self.parent.after(1000, self.human_ai_game_step)
 
@@ -457,7 +355,7 @@ if __name__ == "__main__":
     visualBoard = GameBoard(root, rows=board_height-1, columns=board_width-1)
     visualBoard.pack(side="top", fill="both", expand="true", padx=10, pady=10)
 
-    visualBoard.human_vs_ai(start_player=0, 
+    visualBoard.human_vs_ai(start_player=1, 
                             model_file=f"./models_9_9_5_me/best_policy(leafDamp).model",
                             board_width=9, board_height=9, n_in_row=5) #0: human_first, 1:ai-first
 

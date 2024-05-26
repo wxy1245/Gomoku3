@@ -226,7 +226,7 @@ class Game(object):
                         print("Game end. Tie")
                 return winner
 
-    def start_self_play(self, player, is_shown=0, temp=1e-3):
+    def start_self_play(self, player, is_shown=0, temp=0.003, gamma=0.9): #origin: 1e-3
         """ start a self-play game using a MCTS player, reuse the search tree,
         and store the self-play data: (state, mcts_probs, z) for training
         """
@@ -249,9 +249,17 @@ class Game(object):
             if end:
                 # winner from the perspective of the current player of each state
                 winners_z = np.zeros(len(current_players))
-                if winner != -1:
-                    winners_z[np.array(current_players) == winner] = 1.0
-                    winners_z[np.array(current_players) != winner] = -1.0
+                if winner != -1:    #Also use leafDamp for z value
+                    # winners_z[np.array(current_players) == winner] = 1.0
+                    # winners_z[np.array(current_players) != winner] = -1.0
+
+                    winners_z[np.array(current_players) == winner] = 5.0
+                    winners_z[np.array(current_players) != winner] = -5.0
+                    keep_ratio = 1
+                    for i in range(len(current_players)):
+                        winners_z[len(current_players)-1-i] *= keep_ratio
+                        keep_ratio *= gamma
+
                 # reset MCTS root node
                 player.reset_player()
                 if is_shown:
