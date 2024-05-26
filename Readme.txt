@@ -1,3 +1,5 @@
+# How to use it: run human_ai_visualize.py to be a player, or you can also see the ai plays against each other
+
 My Version of Gomoku, codes mainly from Song JunXiao
 
 1. !!!!!! use the prior knowledge that the last moves must be more relevant to the result(win or lose)
@@ -8,8 +10,10 @@ My Version of Gomoku, codes mainly from Song JunXiao
 
 4. abandon the origin theano, only keep the pytorch code
 
-(5. Consider the last move decides who win may reduce calculation, but actually it seems to be invalid)
+5. !!!!!! Add human vs_ai games record
 
-note: For my version, AI is better at defense. You can see the gif to notice that Song's version tend to get own victory even as a afterplayer, but you can see in my record pictures, my leafDamping AI tends to prevent firstplayer's victory.
+(6. Consider the last move decides who win may reduce calculation, but actually it seems to be invalid)
+
+note: For my version, AI may be better at defense. You can see the gif to notice that Song's version tend to get own victory even as a afterplayer, but you can see in my record pictures, my leafDamping AI tends to prevent firstplayer's victory.
 
 By the way, to move a step forward, I think it is helpful to add some high-quality data of human top players, used as a pretraining. Or, increase a small ratio of data between our model played with a already known strong ai player. 

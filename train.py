@@ -60,7 +60,7 @@ class TrainPipeline():
                         break
 
         self.use_pretrained = True  #decide to use model trained before or not
-        init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy(leafDamp).model"
+        init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model"
         if self.use_pretrained and os.path.isfile(init_model):
             # start training from an initial policy-value net
             self.policy_value_net = PolicyValueNet(self.board_width,
@@ -241,12 +241,10 @@ class TrainPipeline():
     
     def run(self):
         """run the training pipeline"""
-        try:
-            writer = SummaryWriter(f"./runs/{self.board_width}_{self.board_height}_{self.n_in_row}_leaf_damping")
-      
+        try:     
             if self.use_human_ai_data and self.games_data:
                 print("Now is training use records data peroid ...")
-                human_play_game_batch = 400
+                human_play_game_batch = 200
                 record_games_train_freq = 20
                 for i in range(human_play_game_batch):
                     self.Human_AI_data_collect(self.play_batch_size)
@@ -254,9 +252,9 @@ class TrainPipeline():
                             i+1, self.episode_len))
                     if len(self.data_buffer) > self.batch_size:
                         kl, loss = self.policy_update()
-                        writer.add_scalar('Loss', loss, i+1)
-                        writer.add_scalar('KL', kl, i+1)
-                        writer.add_scalar('LR_multiplier', self.lr_multiplier, i+1)
+                        # writer.add_scalar('Loss', loss, i+1)
+                        # writer.add_scalar('KL', kl, i+1)
+                        # writer.add_scalar('LR_multiplier', self.lr_multiplier, i+1)
                     if (i+1) % record_games_train_freq == 0:
                         print("current human_play_record batch: {}".format(i+1))
                         win_ratio = self.policy_evaluate(n_games=self.eval_games)
@@ -264,10 +262,8 @@ class TrainPipeline():
                         if win_ratio > self.best_win_ratio:
                             print("New best policy!!!!!!!!")
                             self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model")
-                            self.five_to_five_cnt = 0
 
-
-                
+            writer = SummaryWriter(f"./runs/{self.board_width}_{self.board_height}_{self.n_in_row}_leaf_damping")    
             for i in range(self.game_batch_num):
                 print("Now is training by self-play period ...")
                 self.collect_selfplay_data(self.play_batch_size)
