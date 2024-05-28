@@ -7,10 +7,10 @@ from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 def run():
     n = 5
     width, height = 9, 9
-    N_fights = 10
+    N_fights = 6
     
-    player1_file = f"./models_{width}_{height}_{n}_me/best_policy(leafDamp).model"
-    player2_file = f"./models_{width}_{height}_{n}_me/best_policy(non-leaf).model"
+    player1_file = f"./models_{width}_{height}_{n}_me/best_policy.model"
+    player2_file = f"./models_{width}_{height}_{n}_me/best_policy(leafDamp).model"
 
     try:
         board = Board(width=width, height=height, n_in_row=n)
@@ -19,10 +19,10 @@ def run():
         # ############### AI VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
         best_policy1 = PolicyValueNet(width, height, model_file = player1_file, use_gpu=True)
-        mcts_player1 = MCTSPlayer(best_policy1.policy_value_fn, c_puct=5, n_playout=800)     
+        mcts_player1 = MCTSPlayer(best_policy1.policy_value_fn, c_puct=5, n_playout=650)     
 
         best_policy2 = PolicyValueNet(width, height, model_file = player2_file, use_gpu=True)
-        mcts_player2 = MCTSPlayer(best_policy2.policy_value_fn, c_puct=5, n_playout=800)
+        mcts_player2 = MCTSPlayer(best_policy2.policy_value_fn, c_puct=5, n_playout=650)
 
         win_cnt = defaultdict(int)
         for i in range(N_fights):

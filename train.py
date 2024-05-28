@@ -19,7 +19,7 @@ import os
 from tensorboardX import SummaryWriter
 
 class TrainPipeline():
-    def __init__(self, init_model=None):
+    def __init__(self):
         # params of the board and the game
         self.board_width = 9
         self.board_height = 9
@@ -31,25 +31,25 @@ class TrainPipeline():
         # training params
         self.learn_rate = 2e-3
         self.lr_multiplier = 1.0  # adaptively adjust the learning rate based on KL
-        self.temp = 1.0  # the temperature param
+        self.temp = 1 # the temperature param
         self.n_playout = 400 + 100 # num of simulations for each move
         self.c_puct = 5
         self.buffer_size = 20000
         self.batch_size = 512  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
         self.play_batch_size = 2
-        self.epochs = 6  # num of train_steps for each update, origin: 5, try: 3
+        self.epochs = 6  # num of train_steps for each update, origin: 5 , try: 3 = 6/2 (for each play game)
         self.kl_targ = 0.02
-        self.check_freq = 20
+        self.check_freq = 16
         self.game_batch_num = 4000
 
-        self.eval_games = 6 
+        self.eval_games = 8 
         self.best_win_ratio = 0.525
         self.five_to_five_cnt = 0
 
-        self.use_human_ai_data = True
+        self.use_human_ai_data = False   #if use human_ai_play data
         self.games_savedirpath = f"./games_saved_data/{self.board_width}_{self.board_height}_{self.n_in_row}/"
-        filename = 'data.pkl'
+        filename = 'data1(human_1+ai_probs).pkl'
         self.games_data = []
         if os.path.exists(self.games_savedirpath + filename):
             with open(self.games_savedirpath + filename, 'rb') as f:
@@ -59,17 +59,20 @@ class TrainPipeline():
                     except EOFError:
                         break
 
-        self.use_pretrained = True  #decide to use model trained before or not
-        init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model"
-        if self.use_pretrained and os.path.isfile(init_model):
-            # start training from an initial policy-value net
-            self.policy_value_net = PolicyValueNet(self.board_width,
+        self.use_existed = True  #decide to use existed model or not
+        self.init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/HumanAI_advance_v2.model" #v2模型感觉已经很强不好赢了，弱点也不明显了
+        if self.use_existed:
+            if os.path.isfile(self.init_model):
+                # start training from existed PolicyValueNet
+                self.policy_value_net = PolicyValueNet(self.board_width,
                                                    self.board_height,
-                                                   model_file=init_model, use_gpu=True)
+                                                   model_file=self.init_model, use_gpu=True)
+            else:
+                raise ValueError("The init_model does not exist")
         else:
             # start training from a new policy-value net
             self.policy_value_net = PolicyValueNet(self.board_width,
-                                                   self.board_height,use_gpu=True)
+                                                   self.board_height,use_gpu=True)        
         self.mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
                                       c_puct=self.c_puct,
                                       n_playout=self.n_playout,
@@ -101,15 +104,17 @@ class TrainPipeline():
         """collect human_play with it data for training"""
         self.episode_len = 0
         for i in range(n_games):
-            if self.games_data:
-                play_data = random.choice(self.games_data)
-                play_data = list(play_data)[:]
-                self.episode_len += len(play_data)
-                play_data = self.get_equi_data(play_data)
-                self.data_buffer.extend(play_data)
+            # play_data = random.choice(self.games_data)    #uniform sample
+
+            # I want to have newer data has higher sample probability  
+            weights = [1.5 * i + 5 for i in range(len(self.games_data))]  
+            play_data = random.choices(self.games_data, weights=weights, k=n_games)[0]                    
+            play_data = list(play_data)[:]
+            self.episode_len += len(play_data)
+            play_data = self.get_equi_data(play_data)
+            self.data_buffer.extend(play_data)
         self.episode_len /= n_games
-
-
+    
     def collect_selfplay_data(self, n_games=1):
         """collect self-play data for training"""
         self.episode_len = 0
@@ -157,24 +162,6 @@ class TrainPipeline():
         elif kl < self.kl_targ / 2 and self.lr_multiplier < 10:
             self.lr_multiplier *= 1.5
 
-        # explained_var_old = (1 -
-        #                      np.var(np.array(winner_batch) - old_v.flatten()) /
-        #                      np.var(np.array(winner_batch)))
-        # explained_var_new = (1 -
-        #                      np.var(np.array(winner_batch) - new_v.flatten()) /
-        #                      np.var(np.array(winner_batch)))
-        # print(("kl:{:.5f},"
-        #        "lr_multiplier:{:.3f},"
-        #        "loss:{},"
-        #        "entropy:{},"
-        #        "explained_var_old:{:.3f},"
-        #        "explained_var_new:{:.3f}"
-        #        ).format(kl,
-        #                 self.lr_multiplier,
-        #                 loss,
-        #                 entropy,
-        #                 explained_var_old,
-        #                 explained_var_new))
         print(("kl:{:.5f},"
                "lr_multiplier:{:.3f},"
                "loss:{:.6f},"
@@ -183,24 +170,24 @@ class TrainPipeline():
         
         return kl, loss
 
-    def policy_evaluate(self, n_games):
+    def fixed_model_evaluate(self, n_games, eval_model):
         """
-        Evaluate the current trained policy by playing against the best_saved model (RL就是一个自我学习成长的, 所以, 和自己比有进步就可以了)!!!!!!
+        Evaluate the current trained policy by playing against the fixed evaluate model
         """
         current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
                                          c_puct=self.c_puct,
-                                         n_playout=self.n_playout)
+                                         n_playout=self.n_playout+50)
         
-        before_best_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model"
+        before_best_model = eval_model
         if not os.path.isfile(before_best_model):   #如果刚开始还没有这个文件的话, 就直接返回一个稍微比阈值大的值, 从而选择保存当前模型
-            return self.best_win_ratio + 0.01
-
+            raise ValueError("eval_model doesn't exist, will save this one for evaluating afterward")
+            
         before_policy_value_net = PolicyValueNet(self.board_width,
                                                  self.board_height,
                                                  model_file=before_best_model,use_gpu=True)
         before_best_player = MCTSPlayer(before_policy_value_net.policy_value_fn,
                                         c_puct=self.c_puct,
-                                        n_playout=self.n_playout)
+                                        n_playout=self.n_playout+50)
         
         win_cnt = defaultdict(int)
         for i in range(n_games):
@@ -214,58 +201,70 @@ class TrainPipeline():
         print("Compete with before model --- win: {}, lose: {}, tie:{}".format(
                 win_cnt[1], win_cnt[2], win_cnt[-1]))
         return win_ratio
-        
-    # def policy_evaluate(self, n_games=10):
-    #     """
-    #     Evaluate the trained policy by playing against the pure MCTS player
-    #     Note: this is only for monitoring the progress of training
-    #     """
-    #     current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
-    #                                      c_puct=self.c_puct,
-    #                                      n_playout=self.n_playout)
-    #     pure_mcts_player = MCTS_Pure(c_puct=5,
-    #                                  n_playout=self.pure_mcts_playout_num)
-    #     win_cnt = defaultdict(int)  #这个字典多了一个功能, 就是创建一个key时自动赋值为0
-    #     for i in range(n_games):
-    #         winner = self.game.start_play(current_mcts_player,
-    #                                       pure_mcts_player,
-    #                                       start_player=i % 2,
-    #                                       is_shown=0)
-    #         win_cnt[winner] += 1
-        
-    #     win_ratio = 1.0*(win_cnt[1] + 0.5*win_cnt[-1]) / n_games    # current_mcts_player是player1, 因此这里的win_ratio指的是current_player的胜率
-    #     print("num_playouts:{}, win: {}, lose: {}, tie:{}".format(
-    #             self.pure_mcts_playout_num,
-    #             win_cnt[1], win_cnt[2], win_cnt[-1]))
-    #     return win_ratio
     
+    def policy_evaluate(self, n_games, init_model=None):
+        """
+        Evaluate the current trained policy by playing against the best_saved model (RL就是一个自我学习成长的, 所以, 和自己比有进步就可以了)!!!!!!
+        """
+        current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
+                                         c_puct=self.c_puct,
+                                         n_playout=+50)
+        
+        before_best_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model"
+        if not os.path.isfile(before_best_model):   #如果刚开始还没有这个文件的话, 就用那个初始的模型来比较
+            before_best_model = init_model
+            
+        before_policy_value_net = PolicyValueNet(self.board_width,
+                                                 self.board_height,
+                                                 model_file=before_best_model,use_gpu=True)
+        before_best_player = MCTSPlayer(before_policy_value_net.policy_value_fn,
+                                        c_puct=self.c_puct,
+                                        n_playout=self.n_playout+50)
+        
+        win_cnt = defaultdict(int)
+        for i in range(n_games):
+            winner = self.game.start_play(current_mcts_player,
+                                before_best_player,
+                                start_player=i % 2,
+                                is_shown=0)
+            win_cnt[winner] += 1
+
+        win_ratio = 1.0*(win_cnt[1] + 0.5*win_cnt[-1]) / n_games
+        print("Compete with before model --- win: {}, lose: {}, tie:{}".format(
+                win_cnt[1], win_cnt[2], win_cnt[-1]))
+        return win_ratio    
+            
     def run(self):
         """run the training pipeline"""
         try:     
             if self.use_human_ai_data and self.games_data:
                 print("Now is training use records data peroid ...")
-                human_play_game_batch = 200
-                record_games_train_freq = 20
+                human_play_game_batch = 1000
+                record_games_train_freq = 100
+
+                refer_win_ratio = self.best_win_ratio  
                 for i in range(human_play_game_batch):
                     self.Human_AI_data_collect(self.play_batch_size)
                     print("batch i:{}, episode_len:{}".format(
                             i+1, self.episode_len))
                     if len(self.data_buffer) > self.batch_size:
-                        kl, loss = self.policy_update()
-                        # writer.add_scalar('Loss', loss, i+1)
-                        # writer.add_scalar('KL', kl, i+1)
-                        # writer.add_scalar('LR_multiplier', self.lr_multiplier, i+1)
+                        kl, loss = self.policy_update()    #抛弃了计算mcts_probs的损失
                     if (i+1) % record_games_train_freq == 0:
                         print("current human_play_record batch: {}".format(i+1))
-                        win_ratio = self.policy_evaluate(n_games=self.eval_games)
-                        self.policy_value_net.save_model(f"./current_policy.model")
-                        if win_ratio > self.best_win_ratio:
+                        win_ratio = self.fixed_model_evaluate(
+                            n_games=self.eval_games,
+                            eval_model=f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/HumanAI_advance_v2.model")               
+                        # self.policy_value_net.save_model(f"./current_policy.model")
+                        if win_ratio > refer_win_ratio:
                             print("New best policy!!!!!!!!")
-                            self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model")
+                            self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/HumanAI_advance_v3.model") 
+                            refer_win_ratio = win_ratio
+                            if refer_win_ratio > 0.85:
+                                return
 
             writer = SummaryWriter(f"./runs/{self.board_width}_{self.board_height}_{self.n_in_row}_leaf_damping")    
-            for i in range(self.game_batch_num):
-                print("Now is training by self-play period ...")
+            print("Now is training by self-play period ...")
+            for i in range(self.game_batch_num):               
                 self.collect_selfplay_data(self.play_batch_size)
                 print("batch i:{}, episode_len:{}".format(
                         i+1, self.episode_len))
@@ -278,35 +277,25 @@ class TrainPipeline():
                 # and save the model params
                 if (i+1) % self.check_freq == 0:
                     print("current self-play batch: {}".format(i+1))
-                    win_ratio = self.policy_evaluate(n_games=self.eval_games)
+                    if self.use_existed:
+                        win_ratio = self.policy_evaluate(n_games=self.eval_games, init_model=self.init_model)
+                    else:
+                        win_ratio = self.policy_evaluate(n_games=self.eval_games)
+
                     self.policy_value_net.save_model(f"./current_policy.model")
                     if win_ratio >= self.best_win_ratio:
                         print("New best policy!!!!!!!!")
                         self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model")
                         self.five_to_five_cnt = 0
-                    # if win_ratio > self.best_win_ratio:
-                    #     print("New best policy!!!!!!!!")
-                    #     self.best_win_ratio = win_ratio
-                    #     # update the best_policy
-                    #     self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model")
-                    #     if (self.best_win_ratio == 1.0 and
-                    #             self.pure_mcts_playout_num < 5000):
-                    #         self.pure_mcts_playout_num += 1000
-                    #         self.best_win_ratio = 0.0
-                    if win_ratio >= self.best_win_ratio:
-                        print("New best policy!!!!!!!!")
-                        self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model")
-                        self.five_to_five_cnt = 0
+
                     if win_ratio == 0.5:
                         self.five_to_five_cnt += 1
                         if self.five_to_five_cnt == 3:
                             self.eval_games += 2
-                            # self.best_win_ratio = max(0.51, self.best_win_ratio - 0.01)
                             self.n_playout += 100
                             self.buffer_size += 10000
                             self.batch_size += 32
                             self.data_buffer = deque(maxlen=self.buffer_size)
-
                             self.five_to_five_cnt = 0
   
         except KeyboardInterrupt:

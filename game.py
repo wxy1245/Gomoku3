@@ -213,7 +213,7 @@ class Game(object):
         while True:
             current_player = self.board.get_current_player()
             player_in_turn = players[current_player]
-            move = player_in_turn.get_action(self.board)
+            move = player_in_turn.get_action(self.board, temp=0.05) #！评估时也可以增加些探索？
             self.board.do_move(move)
             if is_shown:
                 self.graphic(self.board, player1.player, player2.player)
@@ -226,7 +226,7 @@ class Game(object):
                         print("Game end. Tie")
                 return winner
 
-    def start_self_play(self, player, is_shown=0, temp=0.003, gamma=0.9): #origin: 1e-3
+    def start_self_play(self, player, is_shown=0, temp=0.01, gamma=0.925): #origin: 1e-3
         """ start a self-play game using a MCTS player, reuse the search tree,
         and store the self-play data: (state, mcts_probs, z) for training
         """

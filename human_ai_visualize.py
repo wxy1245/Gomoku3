@@ -132,8 +132,7 @@ class GameBoard(tk.Frame):
         row = round((event.y - self.shift_y) / self.size) - 1   
         if 0 <= row <= self.rows and 0 <= col <= self.columns:
             self.human_player.set_last_move(self.rows - row, col, self.columns+1)
-
-            
+           
     def draw_piece(self, row, col, player):
         """Draw a piece on the board."""
         if player == 0:
@@ -172,11 +171,11 @@ class GameBoard(tk.Frame):
             p1, p2 = [1, 2]
 
             best_policy1 = PolicyValueNet(width, height, model_file = model1)
-            mcts_player1 = MCTSPlayer(best_policy1.policy_value_fn, c_puct=5, n_playout=800)    #c_puct在比赛时可以适当减小, 更多的利用已有知识; 训练时可以适当增大, 多探索
+            mcts_player1 = MCTSPlayer(best_policy1.policy_value_fn, c_puct=5, n_playout=650)    #c_puct在比赛时可以适当减小, 更多的利用已有知识; 训练时可以适当增大, 多探索
             mcts_player1.set_player_ind(p1)
 
             best_policy2 = PolicyValueNet(width, height, model_file = model2)
-            mcts_player2 = MCTSPlayer(best_policy2.policy_value_fn, c_puct=5, n_playout=800)    #c_puct在比赛时可以适当减小, 更多的利用已有知识; 训练时可以适当增大, 多探索
+            mcts_player2 = MCTSPlayer(best_policy2.policy_value_fn, c_puct=5, n_playout=650)    #c_puct在比赛时可以适当减小, 更多的利用已有知识; 训练时可以适当增大, 多探索
             mcts_player1.set_player_ind(p2)
 
             self.board = Board(width=width, height=height, n_in_row=n)
@@ -192,10 +191,10 @@ class GameBoard(tk.Frame):
         p1, p2 = [1, 2]
         current_player = self.board.get_current_player()
         player_in_turn = self.players[current_player]
-        move = player_in_turn.get_action(self.board)
+        move = player_in_turn.get_action(self.board, temp=0.01)
         while move is None:
             self.parent.update()
-            move = player_in_turn.get_action(self.board)
+            move = player_in_turn.get_action(self.board, temp=0.01)
         if move is not None:
             if (current_player == p2 and self.start_player == 1) or current_player == p1 and self.start_player == 0: 
                 self.game_record.append(f"Black: ({self.rows - move // self.board.width}, {move % self.board.width})")
@@ -241,7 +240,7 @@ class GameBoard(tk.Frame):
             self.human_player = human
 
             best_policy = PolicyValueNet(width, height, model_file = model_file)
-            mcts_player = MCTSPlayer(best_policy.policy_value_fn, c_puct=5, n_playout=800)    #c_puct在比赛时可以适当减小, 更多的利用已有知识; 训练时可以适当增大, 多探索
+            mcts_player = MCTSPlayer(best_policy.policy_value_fn, c_puct=5, n_playout=700)    #c_puct在比赛时可以适当减小, 更多的利用已有知识; 训练时可以适当增大, 多探索
             mcts_player.set_player_ind(p2)
 
             self.board = Board(width=width, height=height, n_in_row=n)
@@ -254,81 +253,87 @@ class GameBoard(tk.Frame):
         except KeyboardInterrupt:
             print('\n\rquit')
 
-    def human_ai_game_step(self, gamma=0.9):
+    def human_ai_game_step(self, gamma=0.925):
         p1, p2 = [1, 2] #p1: human; p2:ai
         current_player = self.board.get_current_player()
         player_in_turn = self.players[current_player]
-        move = player_in_turn.get_action(self.board)
-
-        # states, move_probs, human_ai_current_players = [], [], []
-        while move is None:
-            self.parent.update()
+        
+        if current_player == p1:
             move = player_in_turn.get_action(self.board)
+            while move is None:
+                self.parent.update()
+                move = player_in_turn.get_action(self.board)
+            # move_probs = None
+            move_probs = np.zeros(self.board.width*self.board.height)   #Human probs use this
+            move_probs[move] = 1.0
+            
+        else:
+            move, move_probs = player_in_turn.get_action(self.board, temp=0.01, return_prob=1)  #Revise the temp value
+            while move is None:
+                self.parent.update()
+                move, move_probs = player_in_turn.get_action(self.board, return_prob=1)
 
-        if move is not None:
-            if (current_player == p2 and self.start_player == 1) or current_player == p1 and self.start_player == 0: 
-                self.game_record.append(f"Black: ({self.rows - move // self.board.width}, {move % self.board.width})")
-            else:   
-                self.game_record.append(f"White: ({self.rows - move // self.board.width}, {move % self.board.width})")
-            
-            #Record the data, to use in the future
-            self.onegame_savestates.append(self.board.current_state())
-            move_probs = np.zeros(self.board.width*self.board.height)
-            move_probs[move] = 1.0    
-            self.onegame_save_probs.append(move_probs) 
-            # if current_player == p1:
-            #     # move_probs simply be a one-hot board
-            #     move_probs = np.zeros(self.board.width*self.board.height)
-            #     move_probs[move] = 1.0    
-            #     self.onegame_save_probs.append(move_probs) 
-            # else:
-            #     # now I still use one-hot board
-            #     move_probs = np.zeros(self.board.width*self.board.height)
-            #     move_probs[move] = 1.0
-            #     self.onegame_save_probs.append(move_probs)
-            self.onegame_saveplayers.append(current_player)
-            
-            self.board.do_move(move)
-            if (self.start_player == 0 and current_player == p1) or (self.start_player == 1 and current_player == p2):
-                self.draw_piece(self.rows - move // self.board.width, move % self.board.width, 0) #0:black
-                self.add_info(f"Black:({self.rows - move // self.board.width}, {move % self.board.width})")
+        # move = player_in_turn.get_action(self.board)
+        # while move is None:
+        #     self.parent.update()
+        #     move = player_in_turn.get_action(self.board)
+
+        if move is None:
+            raise ValueError("Why get a none move?")
+        
+        if (current_player == p2 and self.start_player == 1) or current_player == p1 and self.start_player == 0: 
+            self.game_record.append(f"Black: ({self.rows - move // self.board.width}, {move % self.board.width})")
+        else:   
+            self.game_record.append(f"White: ({self.rows - move // self.board.width}, {move % self.board.width})")
+        
+        #Record the data, to use in the future
+        self.onegame_savestates.append(self.board.current_state())
+        # move_probs = np.zeros(self.board.width*self.board.height)
+        # move_probs[move] = 1.0    
+        self.onegame_save_probs.append(move_probs) 
+        self.onegame_saveplayers.append(current_player)
+        
+        self.board.do_move(move)
+        if (self.start_player == 0 and current_player == p1) or (self.start_player == 1 and current_player == p2):
+            self.draw_piece(self.rows - move // self.board.width, move % self.board.width, 0) #0:black
+            self.add_info(f"Black:({self.rows - move // self.board.width}, {move % self.board.width})")
+        else:
+            self.draw_piece(self.rows - move // self.board.width, move % self.board.width, 1) #1:white
+            self.add_info(f"White:({self.rows - move // self.board.width}, {move % self.board.width})")
+        
+        end, winner = self.board.game_end()
+        if end:
+            winners_z = np.zeros(len(self.onegame_saveplayers))
+            if winner != -1:
+                winners_z[np.array(self.onegame_saveplayers) == winner] = 5.0
+                winners_z[np.array(self.onegame_saveplayers) != winner] = -5.0
+                keep_ratio = 1
+                for i in range(len(self.onegame_saveplayers)):
+                    winners_z[len(self.onegame_saveplayers)-1-i] *= keep_ratio
+                    keep_ratio *= gamma
+
+                if winner == p1:
+                    self.add_info(f"Game end. Winner is Human")
+                if winner == p2:
+                    self.add_info(f"Game end. Winner is AI")                
             else:
-                self.draw_piece(self.rows - move // self.board.width, move % self.board.width, 1) #1:white
-                self.add_info(f"White:({self.rows - move // self.board.width}, {move % self.board.width})")
-            
-            end, winner = self.board.game_end()
-            if end:
-                winners_z = np.zeros(len(self.onegame_saveplayers))
-                if winner != -1:
-                    winners_z[np.array(self.onegame_saveplayers) == winner] = 5.0
-                    winners_z[np.array(self.onegame_saveplayers) != winner] = -5.0
-                    keep_ratio = 1
-                    for i in range(len(self.onegame_saveplayers)):
-                        winners_z[len(self.onegame_saveplayers)-1-i] *= keep_ratio
-                        keep_ratio *= gamma
+                self.add_info("Game end. Tie")
 
-                    if winner == p1:
-                        self.add_info(f"Game end. Winner is Human")
-                    if winner == p2:
-                        self.add_info(f"Game end. Winner is AI")                
+            if len(self.onegame_saveplayers) >= 2 * self.n_in_row - 1:
+                data = tuple(zip(self.onegame_savestates, self.onegame_save_probs, winners_z))  #为了能多次使用，不可以用zip
+                filename = 'data1(human_1+ai_probs).pkl'
+                if os.path.exists(self.games_savedirpath + filename):
+                    with open(self.games_savedirpath + filename, 'ab') as f:
+                        pickle.dump(data, f)
                 else:
-                    self.add_info("Game end. Tie")
-
-                if len(self.onegame_saveplayers) >= 2 * self.n_in_row - 1:
-                    data = zip(self.onegame_savestates, self.onegame_save_probs, winners_z)
-                    filename = 'data.pkl'
-                    if os.path.exists(self.games_savedirpath + filename):
-                        with open(self.games_savedirpath + filename, 'ab') as f:
-                            pickle.dump(data, f)
-                    else:
-                        with open(self.games_savedirpath + filename, 'wb') as f:
-                            pickle.dump(data, f)
-                else:
-                    print("This game is invalid!")                                       
-                self.onegame_savestates, self.onegame_save_probs, self.onegame_saveplayers = [], [], []
-
+                    with open(self.games_savedirpath + filename, 'wb') as f:
+                        pickle.dump(data, f)
             else:
-                self.parent.after(1000, self.human_ai_game_step)
+                print("This game is invalid!")                                       
+            self.onegame_savestates, self.onegame_save_probs, self.onegame_saveplayers = [], [], []
+
+        else:
+            self.parent.after(1000, self.human_ai_game_step)
 
 class HumanPlayer(object):
     def __init__(self, player_ind):
@@ -355,12 +360,12 @@ if __name__ == "__main__":
     visualBoard = GameBoard(root, rows=board_height-1, columns=board_width-1)
     visualBoard.pack(side="top", fill="both", expand="true", padx=10, pady=10)
 
-    visualBoard.human_vs_ai(start_player=1, 
-                            model_file=f"./models_9_9_5_me/best_policy.model",
+    visualBoard.human_vs_ai(start_player=0, 
+                            model_file=f"./models_9_9_5_me/HumanAI_advance_v2.model",
                             board_width=9, board_height=9, n_in_row=5) #0: human_first, 1:ai-first
 
-    # visualBoard.ai_vs_ai(model1=f"./models_9_9_5_me/best_policy(leafDamp).model", 
-    #                      model2=f"./models_9_9_5_me/best_policy(non-leaf).model", 
+    # visualBoard.ai_vs_ai(model1=f"./models_9_9_5_me/HumanAI_advance_v2.model", 
+    #                      model2=f"./models_9_9_5_me/HumanAI_advance_v1.model", 
     #                      start_player=1, board_width=board_width, board_height=board_height, n_in_row=n_in_row)    #0: model1 first, 1:model2 first
 
     root.mainloop()

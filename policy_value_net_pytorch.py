@@ -120,11 +120,13 @@ class PolicyValueNet():
         # wrap in Variable
         if self.use_gpu:
             state_batch = Variable(torch.FloatTensor(np.array(state_batch)).cuda())
-            mcts_probs = Variable(torch.FloatTensor(np.array(mcts_probs)).cuda())
+            if mcts_probs is not None:
+                mcts_probs = Variable(torch.FloatTensor(np.array(mcts_probs)).cuda())
             winner_batch = Variable(torch.FloatTensor(np.array(winner_batch)).cuda())
         else:
             state_batch = Variable(torch.FloatTensor(np.array(state_batch)))
-            mcts_probs = Variable(torch.FloatTensor(np.array(mcts_probs)))
+            if mcts_probs is not None:
+                mcts_probs = Variable(torch.FloatTensor(np.array(mcts_probs)))
             winner_batch = Variable(torch.FloatTensor(np.array(winner_batch)))
 
         # zero the parameter gradients
@@ -137,7 +139,10 @@ class PolicyValueNet():
         # define the loss = (z - v)^2 - pi^T * log(p) + c||theta||^2
         # Note: the L2 penalty is incorporated in optimizer
         value_loss = F.mse_loss(value.view(-1), winner_batch)
-        policy_loss = -torch.mean(torch.sum(mcts_probs*log_act_probs, 1))
+        if mcts_probs is not None:
+            policy_loss = -torch.mean(torch.sum(mcts_probs*log_act_probs, 1))
+        else:
+            policy_loss = 0
         loss = value_loss + policy_loss
         # backward and optimize
         loss.backward()

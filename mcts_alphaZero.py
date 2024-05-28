@@ -58,7 +58,7 @@ class TreeNode(object):
         # Update Q, a running average of values for all visits.
         self._Q += 1.0*(leaf_value - self._Q) / self._n_visits  #self._Q actually means the V value(state value)
 
-    def update_recursive(self, leaf_value, gamma=0.9):
+    def update_recursive(self, leaf_value, gamma=0.925):
         """Like a call to update(), but applied recursively for all ancestors.
         """
         # If it is not root, this node's parent should be updated first.
@@ -139,7 +139,7 @@ class MCTS(object):
         # Update value and visit count of nodes in this traversal.
         node.update_recursive(-leaf_value)
 
-    def get_move_probs(self, state, temp=1e-3):
+    def get_move_probs(self, state, temp=0.01):
         """Run all playouts sequentially and return the available actions and
         their corresponding probabilities.
         state: the current game state
@@ -185,7 +185,7 @@ class MCTSPlayer(object):
     def reset_player(self):
         self.mcts.update_with_move(-1)
 
-    def get_action(self, board, temp=1e-3, return_prob=0):
+    def get_action(self, board, temp=0.01, return_prob=0):
         sensible_moves = board.availables
         # the pi vector returned by MCTS as in the alphaGo Zero paper
         move_probs = np.zeros(board.width*board.height)
