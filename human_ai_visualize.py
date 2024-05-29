@@ -10,7 +10,7 @@ from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 import os
 
 class GameBoard(tk.Frame):
-    def __init__(self, parent, rows, columns, size=64, color='#D2B48C', n_in_row=5):
+    def __init__(self, parent, rows, columns, size=56, color='#D2B48C', n_in_row=5):
         """Create a new game board."""
         self.parent = parent
         self.rows = rows
@@ -320,14 +320,16 @@ class GameBoard(tk.Frame):
                 self.add_info("Game end. Tie")
 
             if len(self.onegame_saveplayers) >= 2 * self.n_in_row - 1:
-                data = tuple(zip(self.onegame_savestates, self.onegame_save_probs, winners_z))  #为了能多次使用，不可以用zip
-                filename = 'data1(human_1+ai_probs).pkl'
-                if os.path.exists(self.games_savedirpath + filename):
-                    with open(self.games_savedirpath + filename, 'ab') as f:
-                        pickle.dump(data, f)
-                else:
-                    with open(self.games_savedirpath + filename, 'wb') as f:
-                        pickle.dump(data, f)
+                if winner == p1 or (winner == -1 and self.start_player == 1):    #Only record the game when machine lose
+                    data = tuple(zip(self.onegame_savestates, self.onegame_save_probs, winners_z))  #为了能多次使用，不可以用zip
+                    filename = 'data2(human_1+ai_probs).pkl'
+                    if os.path.exists(self.games_savedirpath + filename):
+                        with open(self.games_savedirpath + filename, 'ab') as f:
+                            pickle.dump(data, f)
+                    else:
+                        with open(self.games_savedirpath + filename, 'wb') as f:
+                            pickle.dump(data, f)
+                    print("The game has been recorded!")
             else:
                 print("This game is invalid!")                                       
             self.onegame_savestates, self.onegame_save_probs, self.onegame_saveplayers = [], [], []
@@ -353,19 +355,19 @@ class HumanPlayer(object):
 
 if __name__ == "__main__":
     root = tk.Tk()
-    root.geometry("1360x1020")  # Set the window size
+    root.geometry("1200x800")  # Set the window size
 
     board_width, board_height = 9, 9
     n_in_row = 5
     visualBoard = GameBoard(root, rows=board_height-1, columns=board_width-1)
     visualBoard.pack(side="top", fill="both", expand="true", padx=10, pady=10)
 
-    visualBoard.human_vs_ai(start_player=1, 
-                            model_file=f"./models_9_9_5_me/HumanAI_advance_v2.model",
+    visualBoard.human_vs_ai(start_player=0, 
+                            model_file=f"./models_9_9_5_me/HumanAI_advance_v3(1).model",
                             board_width=9, board_height=9, n_in_row=5) #0: human_first, 1:ai-first
 
-    # visualBoard.ai_vs_ai(model1=f"./models_9_9_5_me/best_policy.model", 
-    #                      model2=f"./models_9_9_5_me/HumanAI_advance_v2.model", 
+    # visualBoard.ai_vs_ai(model1=f"./models_9_9_5_me/HumanAI_advance_v3(1).model", 
+    #                      model2=f"./models_9_9_5_me/HumanAI_advance_v3.model", 
     #                      start_player=0, board_width=board_width, board_height=board_height, n_in_row=n_in_row)    #0: model1 first, 1:model2 first
 
     root.mainloop()

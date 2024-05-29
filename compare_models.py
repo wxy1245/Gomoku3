@@ -9,8 +9,8 @@ def run():
     width, height = 9, 9
     N_fights = 6
     
-    player1_file = f"./models_{width}_{height}_{n}_me/best_policy.model"
-    player2_file = f"./models_{width}_{height}_{n}_me/best_policy(leafDamp).model"
+    player1_file = f"./models_{width}_{height}_{n}_me/HumanAI_advance_v37.model"
+    player2_file = f"./models_{width}_{height}_{n}_me/HumanAI_advance_v3.model"
 
     try:
         board = Board(width=width, height=height, n_in_row=n)
