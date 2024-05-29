@@ -212,7 +212,10 @@ class TrainPipeline():
         
         before_best_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/best_policy.model"
         if not os.path.isfile(before_best_model):   #如果刚开始还没有这个文件的话, 就用那个初始的模型来比较
-            before_best_model = init_model
+            if init_model is not None:
+                before_best_model = init_model
+            else:
+                return self.best_win_ratio + 0.05
             
         before_policy_value_net = PolicyValueNet(self.board_width,
                                                  self.board_height,

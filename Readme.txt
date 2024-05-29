@@ -12,3 +12,4 @@ My Version of Gomoku, codes mainly from Song JunXiao
 
 5. !!!!!! Add human vs_ai games record
 Increase the data between our model played with a already known strong ai player, like me, would be helpful. The Human AI play data help improve the model, as you can see in the Human AI advanced model(v0, v1, v2).
+Also, I plan to use it on a Gomoku app, let it play against human players, collect the lose data, and may help it improve and eventually defeat human players.
