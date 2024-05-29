@@ -3,7 +3,11 @@ After 2 days of training on Linux Server
 leafDamp vs non-leaf:
 Win 10(5 black, 5 white)
 
-Add:
-v2 >> v1, v0, leafDamp
-v1 > v0, leafDamp
-v0 >> leafDamp
+Add: (for my roommate, v2 is very hard to win)
+v2 >> v1, v0, leafDamp (>>: ≈10win)
+v1 > v0, leafDamp (>: ≈5win 5tie)
+v0 >> leafDamp (>>: ≈10win)
+
+v3 vs v2: 7 win, 3 tie
+v3_final vs v2: 6 win, 1 lose, 3 tie
+v3_final vs v3: 7 win, 1 lose, 2 tie

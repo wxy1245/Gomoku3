@@ -7,10 +7,10 @@ from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 def run():
     n = 5
     width, height = 9, 9
-    N_fights = 6
+    N_fights = 10
     
-    player1_file = f"./models_{width}_{height}_{n}_me/HumanAI_advance_v37.model"
-    player2_file = f"./models_{width}_{height}_{n}_me/HumanAI_advance_v3.model"
+    player1_file = f"./models_{width}_{height}_{n}_me/HumanAI_advance_v3.model"
+    player2_file = f"./models_{width}_{height}_{n}_me/HumanAI_advance_v2.model"
 
     try:
         board = Board(width=width, height=height, n_in_row=n)
