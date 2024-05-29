@@ -360,12 +360,12 @@ if __name__ == "__main__":
     visualBoard = GameBoard(root, rows=board_height-1, columns=board_width-1)
     visualBoard.pack(side="top", fill="both", expand="true", padx=10, pady=10)
 
-    visualBoard.human_vs_ai(start_player=0, 
+    visualBoard.human_vs_ai(start_player=1, 
                             model_file=f"./models_9_9_5_me/HumanAI_advance_v2.model",
                             board_width=9, board_height=9, n_in_row=5) #0: human_first, 1:ai-first
 
-    # visualBoard.ai_vs_ai(model1=f"./models_9_9_5_me/HumanAI_advance_v2.model", 
-    #                      model2=f"./models_9_9_5_me/HumanAI_advance_v1.model", 
-    #                      start_player=1, board_width=board_width, board_height=board_height, n_in_row=n_in_row)    #0: model1 first, 1:model2 first
+    # visualBoard.ai_vs_ai(model1=f"./models_9_9_5_me/best_policy.model", 
+    #                      model2=f"./models_9_9_5_me/HumanAI_advance_v2.model", 
+    #                      start_player=0, board_width=board_width, board_height=board_height, n_in_row=n_in_row)    #0: model1 first, 1:model2 first
 
     root.mainloop()
