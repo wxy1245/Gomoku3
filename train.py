@@ -43,14 +43,14 @@ class TrainPipeline():
         self.check_freq = 16
         self.game_batch_num = 4000
 
-        self.eval_games = 6
+        self.eval_games = 8
         self.best_win_ratio = 0.525
         self.five_to_five_cnt = 0
 
         self.use_human_ai_data = True   #if use human_ai_play data
         self.games_savedirpath = f"./games_saved_data/{self.board_width}_{self.board_height}_{self.n_in_row}/"
-        filename = 'Merge_data(data1+data2).pkl'
-        # filename = 'data2(human_1+ai_probs).pkl'
+        # filename = 'Merge_data(data1+data2).pkl'
+        filename = 'data2(human_1+ai_probs).pkl'
         self.games_data = []
         if os.path.exists(self.games_savedirpath + filename):
             with open(self.games_savedirpath + filename, 'rb') as f:
@@ -61,7 +61,7 @@ class TrainPipeline():
                         break
 
         self.use_existed = True  #decide to use existed model or not
-        self.init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/HumanAI_advance_v3.model" #v2模型感觉已经很强不好赢了，弱点也不明显了
+        self.init_model = f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/HumanAI_advance_v3_final.model" #v2模型感觉已经很强不好赢了，弱点也不明显了
         if self.use_existed:
             if os.path.isfile(self.init_model):
                 # start training from existed PolicyValueNet
@@ -243,8 +243,8 @@ class TrainPipeline():
         try:     
             if self.use_human_ai_data and self.games_data:
                 print("Now is training use records data peroid ...")
-                human_play_game_batch = 1440
-                record_games_train_freq = 120
+                human_play_game_batch = 1000
+                record_games_train_freq = 100
 
                 refer_win_ratio = self.best_win_ratio  
                 for i in range(human_play_game_batch):
@@ -258,11 +258,11 @@ class TrainPipeline():
                         self.policy_value_net.save_model(f"./current_policy.model")
                         win_ratio = self.fixed_model_evaluate(
                             n_games=self.eval_games,
-                            eval_model=f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/HumanAI_advance_v3.model")               
+                            eval_model=f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/HumanAI_advance_v3_final.model")               
                         # self.policy_value_net.save_model(f"./current_policy.model")
                         if win_ratio > refer_win_ratio:
                             print("New best policy!!!!!!!!")
-                            self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/HumanAI_advance_v3(1).model") 
+                            self.policy_value_net.save_model(f"./models_{self.board_width}_{self.board_height}_{self.n_in_row}_me/HumanAI_advance_v3_final(1).model") 
                             refer_win_ratio = win_ratio
                             if refer_win_ratio > 0.85:
                                 return

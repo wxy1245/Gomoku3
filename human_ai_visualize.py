@@ -268,7 +268,7 @@ class GameBoard(tk.Frame):
             move_probs[move] = 1.0
             
         else:
-            move, move_probs = player_in_turn.get_action(self.board, temp=0.01, return_prob=1)  #Revise the temp value
+            move, move_probs = player_in_turn.get_action(self.board, temp=0.025, return_prob=1)  #Revise the temp value
             while move is None:
                 self.parent.update()
                 move, move_probs = player_in_turn.get_action(self.board, return_prob=1)
@@ -363,10 +363,10 @@ if __name__ == "__main__":
     visualBoard.pack(side="top", fill="both", expand="true", padx=10, pady=10)
 
     visualBoard.human_vs_ai(start_player=0, 
-                            model_file=f"./models_9_9_5_me/HumanAI_advance_v3(1).model",
+                            model_file=f"./models_9_9_5_me/HumanAI_advance_v5.model",
                             board_width=9, board_height=9, n_in_row=5) #0: human_first, 1:ai-first
 
-    # visualBoard.ai_vs_ai(model1=f"./models_9_9_5_me/HumanAI_advance_v3(1).model", 
+    # visualBoard.ai_vs_ai(model1=f"./models_9_9_5_me/HumanAI_advance_v5.model", 
     #                      model2=f"./models_9_9_5_me/HumanAI_advance_v3.model", 
     #                      start_player=0, board_width=board_width, board_height=board_height, n_in_row=n_in_row)    #0: model1 first, 1:model2 first
 
